@@ -3,4 +3,4 @@
 
 # 时间线
 
-- 2025.10: tokenizer
+- 2025.10: tokenizer (基于HuggingFace Tokenizer实现BPE Tokenizer)
