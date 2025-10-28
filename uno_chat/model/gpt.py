@@ -216,6 +216,36 @@ class GPT(nn.Module):
 
     # 预计算旋转位置编码的cos和sin矩阵
     def _precompute_rotary_embeddings(self, seq_len, head_dim, base=10000, device=None):
+        """
+        ```python
+        # 单独跑一下RoPE
+        head_dim = 64
+        base = 10_000
+        seq_len = 1024
+
+        channel_range = torch.arange(0, head_dim, 2, dtype=torch.float32)
+
+        print(f'{channel_range=}')
+        inv_freq = 1.0 / (base ** (channel_range / head_dim))
+        print(f'{inv_freq=}')
+        t = torch.arange(seq_len, dtype=torch.float32)
+        print(f'{t=}')
+        freqs = torch.outer(t, inv_freq)
+        print(f'{freqs=}')
+        cos, sin = freqs.cos(), freqs.sin()
+        print(f'{cos=}')
+        print(f'{sin=}')
+        print(f'{cos.shape=}, {sin.shape=}')
+        cos, sin = cos[None, :, None, :], sin[None, :, None, :]
+        print(f'{cos.shape=}, {sin.shape=}')
+        ```
+
+        :param seq_len:
+        :param head_dim:
+        :param base:
+        :param device:
+        :return:
+        """
         # 预计算旋转位置编码的cos和sin矩阵
         if device is None:
             device = self.get_device()
@@ -276,4 +306,47 @@ class GPT(nn.Module):
             logits = softcap * torch.tanh(logits / softcap)  # logits softcap
             return logits
 
+    # inference
+    @torch.inference_mode()
+    def generate(self, tokens, max_tokens, temperature=1.0, top_k=None, seed=42):
+        """
+        简单的自回归生成（仅限定batch_size=1）
+        没有使用kv_cache优化
 
+        :param tokens:
+        :param max_tokens:
+        :param temperature:
+        :param top_k:
+        :param seed:
+        :return:
+        """
+
+        assert isinstance(tokens, list)
+        device = self.get_device()
+
+        rng = None
+        if temperature > 0:
+            # 用于生成随机数, 确保结果可以复现
+            rng = torch.Generator(device=device)
+            rng.manual_seed(seed)
+
+        ids = torch.tensor([tokens], dtype=torch.long, device=device)
+
+        for _ in range(max_tokens):
+            logits = self.forward(ids)  # (B, T, vocab_size)
+            # 取最后一个token的logits进行采样
+            logits = logits[:, -1, :]  # (B, vocab_size)
+            if top_k is not None:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = -float('Inf')
+            if temperature > 0:
+                # sampling with temperature
+                logits = logits / temperature
+                probs = F.softmax(logits, dim=-1)
+                next_ids = torch.multinomial(probs, num_samples=1, generator=rng)
+            else:
+                # temperature == 0, greedy decoding
+                next_ids = torch.argmax(logits, dim=-1, keepdim=True)
+            ids = torch.cat((ids, next_ids), dim=1)
+            token = next_ids.item()
+            yield token

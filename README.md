@@ -7,3 +7,4 @@
 # 时间线
 
 - 2025.10: tokenizer (基于HuggingFace Tokenizer实现BPE Tokenizer)
+- 2025.10: GPT Model (基于PyTorch实现GPT模型)
