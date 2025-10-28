@@ -124,6 +124,10 @@ class HuggingFaceTokenizer:
         encoding = self.tokenizer.encode(text)
         return encoding.ids
 
+    def encode_special(self, text):
+        # encode a single special token via exact match
+        return self.tokenizer.token_to_id(text)
+
     def encode_string(self, text: str) -> list[int]:
         """
         将输入字符串编码为token id列表

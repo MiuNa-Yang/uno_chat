@@ -8,3 +8,4 @@
 
 - 2025.10: tokenizer (基于HuggingFace Tokenizer实现BPE Tokenizer)
 - 2025.10: GPT Model (基于PyTorch实现GPT模型)
+- 2025.10: Engine (推理引擎，含KV Cache和代码执行器)
